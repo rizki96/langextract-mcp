@@ -263,7 +263,8 @@ def extract_from_text(
     max_char_buffer: int = 1000,
     temperature: float = 0.5,
     extraction_passes: int = 1,
-    max_workers: int = 10
+    max_workers: int = 10,
+    model_url: str = "http://localhost:11434"
 ) -> dict[str, Any]:
     """
     Extract structured information from text using langextract.
@@ -311,7 +312,8 @@ def extract_from_text(
             max_char_buffer=max_char_buffer,
             temperature=temperature,
             extraction_passes=extraction_passes,
-            max_workers=max_workers
+            max_workers=max_workers,
+            model_url=model_url
         )
         
         # Get API key (server-side only for security)
@@ -347,7 +349,8 @@ def extract_from_url(
     max_char_buffer: int = 1000,
     temperature: float = 0.5,
     extraction_passes: int = 1,
-    max_workers: int = 10
+    max_workers: int = 10,
+    model_url: str = "http://localhost:11434"
 ) -> dict[str, Any]:
     """
     Extract structured information from text content at a URL.
@@ -395,7 +398,8 @@ def extract_from_url(
             max_char_buffer=max_char_buffer,
             temperature=temperature,
             extraction_passes=extraction_passes,
-            max_workers=max_workers
+            max_workers=max_workers,
+            model_url=model_url
         )
         
         # Get API key (server-side only for security)
