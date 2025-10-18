@@ -25,6 +25,7 @@ class ExtractionConfig(BaseModel):
     temperature: float = Field(default=0.5, description="Sampling temperature (0.0-1.0)")
     extraction_passes: int = Field(default=1, description="Number of extraction passes for better recall")
     max_workers: int = Field(default=10, description="Max parallel workers")
+    model_url: str | None = Field(default="http://localhost:11434", description="Custom model URL for non-Gemini models")
 
 
 # Initialize FastMCP server with Claude Code compatibility
@@ -62,15 +63,19 @@ class LangExtractClient:
         if model_key not in self._language_models:
             # Validate that only Gemini models are supported
             if not config.model_id.startswith('gemini'):
-                raise ValueError(f"Only Gemini models are supported. Got: {config.model_id}")
-                
-            language_model = lx.inference.GeminiLanguageModel(
-                model_id=config.model_id,
-                api_key=api_key,
-                temperature=config.temperature,
-                max_workers=config.max_workers,
-                gemini_schema=schema
-            )
+                # raise ValueError(f"Only Gemini models are supported. Got: {config.model_id}")
+                language_model = lx.inference.OllamaLanguageModel(
+                    model_id=config.model_id,
+                    model_url=config.model_url
+                )
+            else:
+                language_model = lx.inference.GeminiLanguageModel(
+                    model_id=config.model_id,
+                    api_key=api_key,
+                    temperature=config.temperature,
+                    max_workers=config.max_workers,
+                    gemini_schema=schema
+                )
             self._language_models[model_key] = language_model
             
         return self._language_models[model_key]
@@ -82,24 +87,41 @@ class LangExtractClient:
             Tuple of (schema, examples_hash) for use in caching language models
         """
         if not model_id.startswith('gemini'):
-            return None, ""
+            # return None, ""
             
-        examples_hash = self._get_examples_hash(examples)
-        schema_key = f"{model_id}_{examples_hash}"
-        
-        if schema_key not in self._schema_cache:
-            # Convert examples to langextract format
-            langextract_examples = self._create_langextract_examples(examples)
+            examples_hash = self._get_examples_hash(examples)
+            schema_key = f"{model_id}_{examples_hash}"
             
-            # Create prompt template to generate schema
-            prompt_template = lx.prompting.PromptTemplateStructured(description="Schema generation")
-            prompt_template.examples.extend(langextract_examples)
+            if schema_key not in self._schema_cache:
+                # Convert examples to langextract format
+                langextract_examples = self._create_langextract_examples(examples)
+                
+                # Create prompt template to generate schema
+                prompt_template = lx.prompting.PromptTemplateStructured(description="Schema generation")
+                prompt_template.examples.extend(langextract_examples)
+                
+                # Generate schema
+                schema = lx.schema.FormatModeSchema.from_examples(prompt_template.examples)
+                self._schema_cache[schema_key] = schema
+                
+            return self._schema_cache[schema_key], examples_hash
+        else:
+            examples_hash = self._get_examples_hash(examples)
+            schema_key = f"{model_id}_{examples_hash}"
             
-            # Generate schema
-            schema = lx.schema.GeminiSchema.from_examples(prompt_template.examples)
-            self._schema_cache[schema_key] = schema
-            
-        return self._schema_cache[schema_key], examples_hash
+            if schema_key not in self._schema_cache:
+                # Convert examples to langextract format
+                langextract_examples = self._create_langextract_examples(examples)
+                
+                # Create prompt template to generate schema
+                prompt_template = lx.prompting.PromptTemplateStructured(description="Schema generation")
+                prompt_template.examples.extend(langextract_examples)
+                
+                # Generate schema
+                schema = lx.schema.GeminiSchema.from_examples(prompt_template.examples)
+                self._schema_cache[schema_key] = schema
+                
+            return self._schema_cache[schema_key], examples_hash
     
     def _get_resolver(self, format_type: str = "JSON") -> Any:
         """Get or create a cached resolver."""
@@ -184,7 +206,7 @@ class LangExtractClient:
             max_char_buffer=config.max_char_buffer,
             batch_length=10,
             additional_context=None,
-            debug=False,  # Disable debug for cleaner MCP output
+            debug=True,  # Disable debug for cleaner MCP output
             extraction_passes=config.extraction_passes,
         )
 
@@ -277,11 +299,11 @@ def extract_from_text(
             raise ToolError("Input text cannot be empty")
         
         # Validate that only Gemini models are supported
-        if not model_id.startswith('gemini'):
-            raise ToolError(
-                f"Only Google Gemini models are supported. Got: {model_id}. "
-                f"Use 'list_supported_models' tool to see available options."
-            )
+        # if not model_id.startswith('gemini'):
+        #     raise ToolError(
+        #         f"Only Google Gemini models are supported. Got: {model_id}. "
+        #         f"Use 'list_supported_models' tool to see available options."
+        #     )
         
         # Create config object from individual parameters
         config = ExtractionConfig(
@@ -361,11 +383,11 @@ def extract_from_url(
             raise ToolError("Prompt description cannot be empty")
         
         # Validate that only Gemini models are supported
-        if not model_id.startswith('gemini'):
-            raise ToolError(
-                f"Only Google Gemini models are supported. Got: {model_id}. "
-                f"Use 'list_supported_models' tool to see available options."
-            )
+        # if not model_id.startswith('gemini'):
+        #     raise ToolError(
+        #         f"Only Google Gemini models are supported. Got: {model_id}. "
+        #         f"Use 'list_supported_models' tool to see available options."
+        #     )
         
         # Create config object from individual parameters
         config = ExtractionConfig(
